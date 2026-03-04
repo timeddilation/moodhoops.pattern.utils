@@ -1,0 +1,3 @@
+[flake8]
+# compatibility with black
+extend-ignore = E501, E203, W503

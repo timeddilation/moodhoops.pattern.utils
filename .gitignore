@@ -1,0 +1,6 @@
+__pycache__
+dev.ipynb
+temp/*
+!temp/keep
+exports/*
+!exports/keep
