@@ -3,7 +3,7 @@ import io
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import dcc, html, callback, Input, Output, State
+from dash import dcc, html, callback, Input, Output, State, no_update
 import plotly.graph_objects as go
 from PIL import Image
 import numpy as np
@@ -12,7 +12,11 @@ from moodhoops.features.slow_down_pattern import slow_down_pattern
 from moodhoops.features.swap_colors import swap_colors
 
 
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+app = dash.Dash(
+    __name__,
+    external_stylesheets=[dbc.themes.BOOTSTRAP],
+    suppress_callback_exceptions=True,
+)
 
 
 def create_upload_section(upload_id: str) -> dbc.Row:
@@ -160,12 +164,23 @@ slowdown_page = dbc.Container(
             [
                 dbc.Col(
                     [
-                        dbc.Button(
-                            "Apply Slow Down",
-                            id="slowdown-apply-btn",
-                            color="primary",
+                        dbc.ButtonGroup(
+                            [
+                                dbc.Button(
+                                    "Apply Slow Down",
+                                    id="slowdown-apply-btn",
+                                    color="primary",
+                                ),
+                                dbc.Button(
+                                    "Download BMP",
+                                    id="slowdown-download-btn",
+                                    color="secondary",
+                                    outline=True,
+                                ),
+                            ],
                             className="mt-2",
                         ),
+                        dcc.Download(id="slowdown-download-bmp"),
                     ],
                     width=12,
                 )
@@ -229,7 +244,7 @@ app.layout = dbc.Container(
                                 dbc.Nav(
                                     [
                                         dbc.NavLink(
-                                            "Home",
+                                            "Pattern Previewer",
                                             href="/",
                                             active="exact",
                                             className="nav-link-custom",
@@ -485,6 +500,28 @@ def swapcolors_update_image_display(contents):
             style={"color": "red"},
         )
         return go.Figure(), error_message
+
+
+# ============================================================================
+# Callback: Slow Down Pattern download
+# ============================================================================
+@callback(
+    Output("slowdown-download-bmp", "data"),
+    Input("slowdown-download-btn", "n_clicks"),
+    State("slowdown-image-store", "data"),
+    prevent_initial_call=True,
+)
+def download_slowdown_image(n_clicks, stored_image):
+    """Download the currently displayed slow down image as a BMP file."""
+    if not n_clicks or stored_image is None:
+        return no_update
+
+    img_array = np.array(stored_image, dtype=np.uint8)
+
+    def write_bmp(bytes_io):
+        Image.fromarray(img_array).save(bytes_io, format="BMP")
+
+    return dcc.send_bytes(write_bmp, "slowdown_pattern.bmp")
 
 
 if __name__ == "__main__":
