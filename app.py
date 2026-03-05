@@ -9,7 +9,6 @@ from PIL import Image
 import numpy as np
 
 from moodhoops.features.slow_down_pattern import slow_down_pattern
-from moodhoops.features.swap_colors import swap_colors
 
 
 app = dash.Dash(
@@ -111,6 +110,7 @@ home_page = dbc.Container(
 slowdown_page = dbc.Container(
     [
         dcc.Store(id="slowdown-image-store"),
+        dcc.Store(id="slowdown-original-image-store"),
         dbc.Row(
             [
                 dbc.Col(
@@ -124,70 +124,102 @@ slowdown_page = dbc.Container(
                 )
             ]
         ),
-        create_upload_section("slowdown-upload-image"),
         dbc.Row(
             [
                 dbc.Col(
                     [
-                        html.Label("Mode Speed (1-500 RPS):", className="fw-bold"),
-                        dbc.Input(
-                            id="slowdown-mode-speed",
-                            type="number",
-                            placeholder="Current speed in RPS",
-                            value=300,
-                            min=1,
-                            max=500,
-                            className="mb-3",
-                        ),
+                        create_upload_section("slowdown-upload-image"),
+                        create_message_section("slowdown-output-message"),
+                        create_graph_section("slowdown-image-display"),
                     ],
-                    md=6,
+                    width=10,
                 ),
                 dbc.Col(
                     [
-                        html.Label("Desired Speed (1-500 RPS):", className="fw-bold"),
-                        dbc.Input(
-                            id="slowdown-desired-speed",
-                            type="number",
-                            placeholder="Target speed in RPS",
-                            value=200,
-                            min=1,
-                            max=500,
-                            className="mb-3",
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [
+                                        dbc.Button(
+                                            "Apply Slow Down",
+                                            id="slowdown-apply-btn",
+                                            color="primary",
+                                            className="w-100",
+                                        ),
+                                    ],
+                                    width=12,
+                                )
+                            ],
+                            className="mb-2",
+                        ),
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [
+                                        dbc.Button(
+                                            "Download BMP",
+                                            id="slowdown-download-btn",
+                                            color="secondary",
+                                            outline=True,
+                                            className="w-100",
+                                        ),
+                                        dcc.Download(id="slowdown-download-bmp"),
+                                    ],
+                                    width=12,
+                                )
+                            ],
+                            className="mb-4",
+                        ),
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [
+                                        html.Label(
+                                            "Mode Speed (1-500 RPS):",
+                                            className="fw-bold",
+                                        ),
+                                        dbc.Input(
+                                            id="slowdown-mode-speed",
+                                            type="number",
+                                            placeholder="Current speed in RPS",
+                                            value=300,
+                                            min=1,
+                                            max=500,
+                                            className="mb-3",
+                                        ),
+                                    ],
+                                    width=12,
+                                )
+                            ]
+                        ),
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [
+                                        html.Label(
+                                            "Desired Speed (1-500 RPS):",
+                                            className="fw-bold",
+                                        ),
+                                        dbc.Input(
+                                            id="slowdown-desired-speed",
+                                            type="number",
+                                            placeholder="Target speed in RPS",
+                                            value=200,
+                                            min=1,
+                                            max=500,
+                                            className="mb-3",
+                                        ),
+                                    ],
+                                    width=12,
+                                )
+                            ]
                         ),
                     ],
-                    md=6,
+                    width=2,
                 ),
             ],
             className="mt-3",
         ),
-        dbc.Row(
-            [
-                dbc.Col(
-                    [
-                        dbc.ButtonGroup(
-                            [
-                                dbc.Button(
-                                    "Apply Slow Down",
-                                    id="slowdown-apply-btn",
-                                    color="primary",
-                                ),
-                                dbc.Button(
-                                    "Download BMP",
-                                    id="slowdown-download-btn",
-                                    color="secondary",
-                                    outline=True,
-                                ),
-                            ],
-                            className="mt-2",
-                        ),
-                        dcc.Download(id="slowdown-download-bmp"),
-                    ],
-                    width=12,
-                )
-            ]
-        ),
-        create_message_section("slowdown-output-message"),
-        create_graph_section("slowdown-image-display"),
     ],
     fluid=True,
 )
@@ -380,15 +412,22 @@ def home_update_image_display(contents):
     Output("slowdown-image-display", "figure"),
     Output("slowdown-output-message", "children"),
     Output("slowdown-image-store", "data"),
+    Output("slowdown-original-image-store", "data"),
     Input("slowdown-upload-image", "contents"),
     Input("slowdown-apply-btn", "n_clicks"),
     State("slowdown-image-store", "data"),
+    State("slowdown-original-image-store", "data"),
     State("slowdown-mode-speed", "value"),
     State("slowdown-desired-speed", "value"),
     prevent_initial_call=True,
 )
 def slowdown_update_image_display(
-    contents, n_clicks, stored_image, mode_speed, desired_speed
+    contents,
+    n_clicks,
+    stored_image,
+    original_stored_image,
+    mode_speed,
+    desired_speed,
 ):
     """Handle slow down pattern upload and apply actions."""
     triggered = dash.callback_context.triggered_id
@@ -396,7 +435,7 @@ def slowdown_update_image_display(
     try:
         if triggered == "slowdown-upload-image":
             if contents is None:
-                return go.Figure(), "", None
+                return go.Figure(), "", None, None
 
             img_array = decode_upload_contents(contents)
             fig = create_pixel_perfect_figure(img_array)
@@ -410,10 +449,11 @@ def slowdown_update_image_display(
                 ]
             )
 
-            return fig, message, img_array.tolist()
+            image_data = img_array.tolist()
+            return fig, message, image_data, image_data
 
         if triggered == "slowdown-apply-btn":
-            if stored_image is None:
+            if original_stored_image is None:
                 error_message = html.Div(
                     [
                         html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
@@ -421,9 +461,10 @@ def slowdown_update_image_display(
                     ],
                     style={"color": "red"},
                 )
-                return go.Figure(), error_message, None
+                return go.Figure(), error_message, stored_image, original_stored_image
 
-            img_array = np.array(stored_image, dtype=np.uint8)
+            # Always apply to the original uploaded image, not the currently displayed result
+            img_array = np.array(original_stored_image, dtype=np.uint8)
             result_array = slow_down_pattern(img_array, mode_speed, desired_speed)
             fig = create_pixel_perfect_figure(result_array)
 
@@ -437,9 +478,9 @@ def slowdown_update_image_display(
                 ]
             )
 
-            return fig, message, result_array.tolist()
+            return fig, message, result_array.tolist(), original_stored_image
 
-        return go.Figure(), "", stored_image
+        return go.Figure(), "", stored_image, original_stored_image
 
     except ValueError as e:
         error_message = html.Div(
@@ -449,7 +490,7 @@ def slowdown_update_image_display(
             ],
             style={"color": "red"},
         )
-        return go.Figure(), error_message, stored_image
+        return go.Figure(), error_message, stored_image, original_stored_image
 
     except Exception as e:
         error_message = html.Div(
@@ -459,7 +500,7 @@ def slowdown_update_image_display(
             ],
             style={"color": "red"},
         )
-        return go.Figure(), error_message, stored_image
+        return go.Figure(), error_message, stored_image, original_stored_image
 
 
 # ============================================================================
