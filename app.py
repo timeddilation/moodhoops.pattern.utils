@@ -2,9 +2,9 @@ import base64
 import io
 
 import dash
-import dash_bootstrap_components as dbc
+import dash_bootstrap_components as dbc  # type: ignore
 from dash import dcc, html, callback, Input, Output, State, no_update, ALL
-import plotly.graph_objects as go
+import plotly.graph_objects as go  # type: ignore
 from PIL import Image
 import numpy as np
 
@@ -385,6 +385,133 @@ swapcolors_page = dbc.Container(
 )
 
 # ============================================================================
+# Choreography Page
+# ============================================================================
+choreography_page = dbc.Container(
+    [
+        dcc.Store(
+            id="choreography-timer-state",
+            data={"running": False, "splits": ["00:00:000"], "startTime": None},
+        ),
+        dcc.Store(
+            id="choreography-split-bmps",
+            data={},
+        ),
+        dcc.Interval(id="choreography-interval", interval=10, disabled=True),
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        html.H1("Choreography Timer", className="mb-4 mt-4"),
+                        html.P(
+                            "Create timecoded splits for your LED hoop choreography. "
+                            "Press the Start/Split button or space bar to record splits."
+                        ),
+                    ],
+                    width=12,
+                )
+            ]
+        ),
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        dbc.Row(
+                            [
+                                html.Div(
+                                    id="choreography-timer-display",
+                                    children="00:00:000",
+                                    style={
+                                        "fontSize": "4rem",
+                                        "fontWeight": "bold",
+                                        "textAlign": "center",
+                                        "fontFamily": "monospace",
+                                        "padding": "30px",
+                                        "marginBottom": "20px",
+                                        "backgroundColor": "#f8f9fa",
+                                        "borderRadius": "10px",
+                                    },
+                                ),
+                            ]
+                        ),
+                        dbc.Row(
+                            [
+                                dbc.Button(
+                                    "Start / Split (space)",
+                                    id="choreography-start-split-btn",
+                                    color="primary",
+                                    size="lg",
+                                    className="w-100",
+                                ),
+                            ],
+                            className="mb-4",
+                        ),
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [
+                                        dbc.Button(
+                                            "Stop",
+                                            id="choreography-stop-btn",
+                                            color="danger",
+                                            size="lg",
+                                            className="w-100",
+                                        ),
+                                    ],
+                                    width=6,
+                                ),
+                                dbc.Col(
+                                    [
+                                        dbc.Button(
+                                            "Reset",
+                                            id="choreography-reset-btn",
+                                            color="secondary",
+                                            outline=True,
+                                            size="lg",
+                                            className="w-100",
+                                        ),
+                                    ],
+                                    width=6,
+                                ),
+                            ],
+                            className="mb-4",
+                        ),
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [
+                                        dbc.Button(
+                                            "Download Choreo",
+                                            id="choreography-download-btn",
+                                            color="success",
+                                            outline=True,
+                                            size="lg",
+                                            className="w-100",
+                                        ),
+                                        dcc.Download(id="choreography-download-zip"),
+                                    ],
+                                    width=12,
+                                )
+                            ],
+                        ),
+                    ],
+                    width=3,
+                ),
+                dbc.Col(
+                    [
+                        html.H4("Splits", className="mb-3"),
+                        html.Div(id="choreography-splits-display"),
+                    ],
+                    width=9,
+                ),
+            ],
+            className="mb-4",
+        ),
+    ],
+    fluid=True,
+)
+
+# ============================================================================
 # Main App Layout with Side Navigation
 # ============================================================================
 app.layout = dbc.Container(
@@ -415,6 +542,12 @@ app.layout = dbc.Container(
                                         dbc.NavLink(
                                             "Swap Colors",
                                             href="/swap-colors",
+                                            active="exact",
+                                            className="nav-link-custom",
+                                        ),
+                                        dbc.NavLink(
+                                            "Choreography",
+                                            href="/choreography",
                                             active="exact",
                                             className="nav-link-custom",
                                         ),
@@ -463,6 +596,8 @@ def display_page(pathname):
         return slowdown_page
     elif pathname == "/swap-colors":
         return swapcolors_page
+    elif pathname == "/choreography":
+        return choreography_page
     else:
         return home_page
 
@@ -910,6 +1045,324 @@ def download_swapcolors_image(n_clicks, stored_image):
         Image.fromarray(img_array).save(bytes_io, format="BMP")
 
     return dcc.send_bytes(write_bmp, "swap_colors_pattern.bmp")
+
+
+# ============================================================================
+# Callback: Choreography timer control
+# ============================================================================
+@callback(
+    Output("choreography-timer-state", "data"),
+    Output("choreography-interval", "disabled"),
+    Output("choreography-split-bmps", "data", allow_duplicate=True),
+    Input("choreography-start-split-btn", "n_clicks"),
+    Input("choreography-stop-btn", "n_clicks"),
+    Input("choreography-reset-btn", "n_clicks"),
+    State("choreography-timer-state", "data"),
+    prevent_initial_call=True,
+)
+def choreography_control_timer(start_clicks, stop_clicks, reset_clicks, state):
+    """Control the choreography timer (start/split/stop/reset)."""
+    import time
+
+    triggered = dash.callback_context.triggered_id
+
+    if triggered == "choreography-reset-btn":
+        return (
+            {
+                "running": False,
+                "splits": ["00:00:000"],
+                "startTime": None,
+            },
+            True,
+            {},
+        )
+
+    if triggered == "choreography-start-split-btn":
+        if not state["running"]:
+            # Start the timer
+            return (
+                {
+                    "running": True,
+                    "splits": ["00:00:000"],
+                    "startTime": time.time(),
+                },
+                False,
+                no_update,
+            )
+        else:
+            # Add a split
+            elapsed = time.time() - state["startTime"]
+            minutes = int(elapsed // 60)
+            seconds = int(elapsed % 60)
+            milliseconds = int((elapsed % 1) * 1000)
+            split_time = f"{minutes:02d}:{seconds:02d}:{milliseconds:03d}"
+
+            new_splits = state["splits"] + [split_time]
+            return (
+                {
+                    "running": True,
+                    "splits": new_splits,
+                    "startTime": state["startTime"],
+                },
+                False,
+                no_update,
+            )
+
+    if triggered == "choreography-stop-btn":
+        return (
+            {
+                "running": False,
+                "splits": state["splits"],
+                "startTime": state["startTime"],
+            },
+            True,
+            no_update,
+        )
+
+    return state, not state["running"], no_update
+
+
+# ============================================================================
+# Callback: Update choreography timer display
+# ============================================================================
+@callback(
+    Output("choreography-timer-display", "children"),
+    Input("choreography-interval", "n_intervals"),
+    State("choreography-timer-state", "data"),
+)
+def choreography_update_timer_display(n_intervals, state):
+    """Update the timer display."""
+    import time
+
+    if not state["running"] or state["startTime"] is None:
+        if state["splits"]:
+            return state["splits"][-1]
+        return "00:00:000"
+
+    elapsed = time.time() - state["startTime"]
+    minutes = int(elapsed // 60)
+    seconds = int(elapsed % 60)
+    milliseconds = int((elapsed % 1) * 1000)
+
+    return f"{minutes:02d}:{seconds:02d}:{milliseconds:03d}"
+
+
+# ============================================================================
+# Callback: Display choreography splits
+# ============================================================================
+@callback(
+    Output("choreography-splits-display", "children"),
+    Input("choreography-timer-state", "data"),
+    Input("choreography-split-bmps", "data"),
+)
+def choreography_display_splits(state, split_bmps):
+    """Display all recorded splits in cards."""
+    splits = state.get("splits", ["00:00:000"])
+    split_bmps = split_bmps or {}
+
+    cards = []
+    for i, split_time in enumerate(splits):
+        bmp_info = split_bmps.get(str(i))
+
+        card_content = [
+            dbc.Row(
+                [
+                    dbc.Col(
+                        html.Div(
+                            f"Split {i + 1}",
+                            className="fw-semibold text-muted",
+                            style={"fontSize": "0.9rem"},
+                        ),
+                        width=4,
+                    ),
+                    dbc.Col(
+                        html.Div(
+                            split_time,
+                            className="fw-bold",
+                            style={
+                                "fontSize": "1.2rem",
+                                "fontFamily": "monospace",
+                                "textAlign": "right",
+                            },
+                        ),
+                        width=8,
+                    ),
+                ]
+            ),
+            html.Hr(className="my-2"),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            dcc.Upload(
+                                id={"type": "choreography-upload-split", "index": i},
+                                children=html.Div(
+                                    [
+                                        "Drag or ",
+                                        html.A("select .bmp"),
+                                    ]
+                                ),
+                                style={
+                                    "width": "100%",
+                                    "height": "40px",
+                                    "lineHeight": "40px",
+                                    "borderWidth": "1px",
+                                    "borderStyle": "dashed",
+                                    "borderRadius": "5px",
+                                    "textAlign": "center",
+                                    "fontSize": "0.85rem",
+                                },
+                                accept=".bmp",
+                            ),
+                        ],
+                        width=12,
+                    )
+                ],
+                className="mb-2",
+            ),
+        ]
+
+        if bmp_info:
+            card_content.append(
+                dbc.Row(
+                    [
+                        dbc.Col(
+                            [
+                                html.Div(
+                                    [
+                                        html.Span("✓ ", style={"color": "green"}),
+                                        html.Span(
+                                            f"{bmp_info['filename']} ({bmp_info['width']}×{bmp_info['height']})",
+                                            style={"fontSize": "0.85rem"},
+                                        ),
+                                    ]
+                                )
+                            ],
+                            width=12,
+                        )
+                    ]
+                )
+            )
+
+        card = dbc.Card(
+            dbc.CardBody(card_content),
+            className="mb-2",
+        )
+        cards.append(card)
+
+    return cards
+
+
+# ============================================================================
+# Callback: Handle BMP uploads for choreography splits
+# ============================================================================
+@callback(
+    Output("choreography-split-bmps", "data"),
+    Input({"type": "choreography-upload-split", "index": ALL}, "contents"),
+    Input({"type": "choreography-upload-split", "index": ALL}, "filename"),
+    State({"type": "choreography-upload-split", "index": ALL}, "id"),
+    State("choreography-split-bmps", "data"),
+    prevent_initial_call=True,
+)
+def choreography_handle_split_uploads(
+    contents_list, filenames_list, ids_list, split_bmps
+):
+    """Handle BMP file uploads for each split."""
+    split_bmps = split_bmps or {}
+
+    triggered = dash.callback_context.triggered_id
+    if not triggered or not isinstance(triggered, dict):
+        return split_bmps
+
+    # Find which upload triggered
+    split_index = triggered.get("index")
+    if split_index is None:
+        return split_bmps
+
+    # Find the corresponding content and filename
+    for upload_id, content, filename in zip(ids_list, contents_list, filenames_list):
+        if upload_id["index"] == split_index and content:
+            try:
+                img_array = decode_upload_contents(content)
+                split_bmps[str(split_index)] = {
+                    "filename": filename,
+                    "width": img_array.shape[1],
+                    "height": img_array.shape[0],
+                    "contents": content,
+                }
+                break
+            except Exception:
+                # If there's an error, just skip this upload
+                pass
+
+    return split_bmps
+
+
+# ============================================================================
+# Callback: Download choreography as zip file
+# ============================================================================
+@callback(
+    Output("choreography-download-zip", "data"),
+    Input("choreography-download-btn", "n_clicks"),
+    State("choreography-timer-state", "data"),
+    State("choreography-split-bmps", "data"),
+    prevent_initial_call=True,
+)
+def choreography_download_zip(n_clicks, state, split_bmps):
+    """Download choreography as a zip file with .mhc file and BMP files."""
+    if not n_clicks:
+        return no_update
+
+    import zipfile
+
+    splits = state.get("splits", ["00:00:000"])
+    split_bmps = split_bmps or {}
+
+    def create_choreo_zip(bytes_io):
+        with zipfile.ZipFile(bytes_io, "w", zipfile.ZIP_DEFLATED) as zf:
+            # Create choreo.mhc file with splits (excluding the first 00:00:000)
+            choreo_content = "\n".join(splits[1:])
+            zf.writestr("choreo.mhc", choreo_content)
+
+            # Add BMP files with zero-padded index names
+            for i in range(len(splits)):
+                bmp_info = split_bmps.get(str(i))
+                if bmp_info and "contents" in bmp_info:
+                    # Decode the BMP content
+                    img_array = decode_upload_contents(bmp_info["contents"])
+
+                    # Create BMP in memory
+                    bmp_bytes = io.BytesIO()
+                    Image.fromarray(img_array).save(bmp_bytes, format="BMP")
+                    bmp_bytes.seek(0)
+
+                    # Add to zip with zero-padded index name
+                    filename = f"{i:03d}.bmp"
+                    zf.writestr(filename, bmp_bytes.read())
+
+    return dcc.send_bytes(create_choreo_zip, "choreography.zip")
+
+
+# ============================================================================
+# Client-side: Space bar trigger for start/split
+# ============================================================================
+app.clientside_callback(
+    """
+    function(n) {
+        document.addEventListener('keydown', function(event) {
+            if (event.code === 'Space' && event.target.tagName !== 'INPUT') {
+                event.preventDefault();
+                const btn = document.getElementById('choreography-start-split-btn');
+                if (btn) btn.click();
+            }
+        });
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output("choreography-start-split-btn", "n_clicks", allow_duplicate=True),
+    Input("url", "pathname"),
+    prevent_initial_call=True,
+)
 
 
 if __name__ == "__main__":
