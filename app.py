@@ -402,9 +402,11 @@ choreography_page = dbc.Container(
             [
                 dbc.Col(
                     [
-                        html.H1("Choreography Timer", className="mb-4 mt-4"),
+                        html.H1("Choreography Maker", className="mb-4 mt-4"),
                         html.P(
-                            "Create timecoded splits for your LED hoop choreography. "
+                            "Create timecoded splits for your MoodHoop choreography. "
+                            "Upload BMP images for each split. "
+                            "Then download a ZIP file containing all split images and a mhc choreo file with split timings. "
                             "Press the Start/Split button or space bar to record splits."
                         ),
                     ],
@@ -416,6 +418,18 @@ choreography_page = dbc.Container(
             [
                 dbc.Col(
                     [
+                        dbc.Row(
+                            [
+                                dbc.Button(
+                                    "Start / Split (space)",
+                                    id="choreography-start-split-btn",
+                                    color="primary",
+                                    size="lg",
+                                    className="w-100",
+                                ),
+                            ],
+                            className="mb-4",
+                        ),
                         dbc.Row(
                             [
                                 html.Div(
@@ -433,18 +447,6 @@ choreography_page = dbc.Container(
                                     },
                                 ),
                             ]
-                        ),
-                        dbc.Row(
-                            [
-                                dbc.Button(
-                                    "Start / Split (space)",
-                                    id="choreography-start-split-btn",
-                                    color="primary",
-                                    size="lg",
-                                    className="w-100",
-                                ),
-                            ],
-                            className="mb-4",
                         ),
                         dbc.Row(
                             [
@@ -1128,7 +1130,7 @@ def choreography_control_timer(start_clicks, stop_clicks, reset_clicks, state):
 @callback(
     Output("choreography-timer-display", "children"),
     Input("choreography-interval", "n_intervals"),
-    State("choreography-timer-state", "data"),
+    Input("choreography-timer-state", "data"),
 )
 def choreography_update_timer_display(n_intervals, state):
     """Update the timer display."""
