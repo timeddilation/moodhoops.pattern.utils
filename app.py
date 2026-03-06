@@ -1680,14 +1680,26 @@ def choreography_download_zip(n_clicks, state, split_bmps):
 # ============================================================================
 app.clientside_callback(
     """
-    function(n) {
-        document.addEventListener('keydown', function(event) {
-            if (event.code === 'Space' && event.target.tagName !== 'INPUT') {
-                event.preventDefault();
-                const btn = document.getElementById('choreography-start-split-btn');
-                if (btn) btn.click();
-            }
-        });
+    function(pathname) {
+        // Remove any existing listener
+        if (window.choreoSpaceHandler) {
+            document.removeEventListener('keydown', window.choreoSpaceHandler);
+        }
+
+        // Only add listener when on choreography page
+        if (pathname === '/choreography') {
+            window.choreoSpaceHandler = function(event) {
+                if (event.code === 'Space' &&
+                    event.target.tagName !== 'INPUT' &&
+                    event.target.tagName !== 'TEXTAREA') {
+                    event.preventDefault();
+                    const btn = document.getElementById('choreography-start-split-btn');
+                    if (btn) btn.click();
+                }
+            };
+            document.addEventListener('keydown', window.choreoSpaceHandler);
+        }
+
         return window.dash_clientside.no_update;
     }
     """,
