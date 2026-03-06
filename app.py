@@ -495,6 +495,37 @@ choreography_page = dbc.Container(
                                     width=12,
                                 )
                             ],
+                            className="mb-4",
+                        ),
+                        dbc.Row(
+                            [
+                                html.Label(
+                                    "Upload existing choreography ZIP file:",
+                                    className="fw-bold mb-2",
+                                ),
+                                dcc.Upload(
+                                    id="choreography-upload-zip",
+                                    children=html.Div(
+                                        [
+                                            "Drag and drop or ",
+                                            html.A("select a .zip file"),
+                                        ]
+                                    ),
+                                    style={
+                                        "width": "100%",
+                                        "height": "60px",
+                                        "lineHeight": "60px",
+                                        "borderWidth": "1px",
+                                        "borderStyle": "dashed",
+                                        "borderRadius": "5px",
+                                        "textAlign": "center",
+                                        "margin": "10px 0",
+                                    },
+                                    accept=".zip",
+                                ),
+                                html.Div(id="choreography-upload-message"),
+                            ],
+                            className="mb-4",
                         ),
                     ],
                     width=3,
@@ -1298,6 +1329,164 @@ def choreography_handle_split_uploads(
                 pass
 
     return split_bmps
+
+
+# ============================================================================
+# Callback: Upload choreography zip file
+# ============================================================================
+@callback(
+    Output("choreography-timer-state", "data", allow_duplicate=True),
+    Output("choreography-split-bmps", "data", allow_duplicate=True),
+    Output("choreography-upload-message", "children"),
+    Input("choreography-upload-zip", "contents"),
+    State("choreography-upload-zip", "filename"),
+    prevent_initial_call=True,
+)
+def choreography_upload_zip(contents, filename):
+    """Upload and parse choreography zip file."""
+    if not contents:
+        return no_update, no_update, ""
+
+    import zipfile
+
+    try:
+        # Decode the uploaded file
+        content_type, content_string = contents.split(",")
+        decoded = base64.b64decode(content_string)
+        zip_bytes = io.BytesIO(decoded)
+
+        # Open and validate zip file
+        with zipfile.ZipFile(zip_bytes, "r") as zf:
+            file_list = zf.namelist()
+
+            # Find .mhc and .bmp files
+            mhc_files = [f for f in file_list if f.lower().endswith(".mhc")]
+            bmp_files = [f for f in file_list if f.lower().endswith(".bmp")]
+            other_files = [
+                f
+                for f in file_list
+                if not f.lower().endswith(".mhc")
+                and not f.lower().endswith(".bmp")
+                and not f.endswith("/")
+            ]
+
+            # Validation
+            if len(mhc_files) == 0:
+                error_msg = html.Div(
+                    [
+                        html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
+                        html.Span("Error: No .mhc file found in zip."),
+                    ],
+                    style={"color": "red"},
+                )
+                return no_update, no_update, error_msg
+
+            if len(mhc_files) > 1:
+                error_msg = html.Div(
+                    [
+                        html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
+                        html.Span(
+                            f"Error: Multiple .mhc files found. Expected 1, found {len(mhc_files)}."
+                        ),
+                    ],
+                    style={"color": "red"},
+                )
+                return no_update, no_update, error_msg
+
+            if len(bmp_files) == 0:
+                error_msg = html.Div(
+                    [
+                        html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
+                        html.Span("Error: No .bmp files found in zip."),
+                    ],
+                    style={"color": "red"},
+                )
+                return no_update, no_update, error_msg
+
+            if len(other_files) > 0:
+                error_msg = html.Div(
+                    [
+                        html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
+                        html.Span(
+                            f"Error: Invalid files found (only .mhc and .bmp allowed): {', '.join(other_files)}"
+                        ),
+                    ],
+                    style={"color": "red"},
+                )
+                return no_update, no_update, error_msg
+
+            # Read and parse .mhc file
+            mhc_content = zf.read(mhc_files[0]).decode("utf-8")
+            split_times = [
+                line.strip() for line in mhc_content.strip().split("\n") if line.strip()
+            ]
+
+            # Add initial 00:00:000 split
+            all_splits = ["00:00:000"] + split_times
+
+            # Sort BMP files alphabetically
+            bmp_files.sort()
+
+            # Read BMP files and create split_bmps mapping
+            split_bmps = {}
+            for i, bmp_filename in enumerate(bmp_files):
+                if i < len(
+                    all_splits
+                ):  # Only process BMPs if we have corresponding splits
+                    bmp_data = zf.read(bmp_filename)
+
+                    # Convert to base64 for storage (same format as upload)
+                    bmp_base64 = base64.b64encode(bmp_data).decode("utf-8")
+                    bmp_contents = f"data:image/bmp;base64,{bmp_base64}"
+
+                    # Decode to get dimensions
+                    img = Image.open(io.BytesIO(bmp_data)).convert("RGB")
+                    img_array = np.array(img)
+
+                    split_bmps[str(i)] = {
+                        "filename": bmp_filename,
+                        "width": img_array.shape[1],
+                        "height": img_array.shape[0],
+                        "contents": bmp_contents,
+                    }
+
+            # Create new timer state
+            new_state = {
+                "running": False,
+                "splits": all_splits,
+                "startTime": None,
+            }
+
+            success_msg = html.Div(
+                [
+                    html.Span("✓ ", style={"color": "green", "fontWeight": "bold"}),
+                    html.Span(
+                        f"Loaded choreography: {len(split_times)} splits, {len(bmp_files)} BMPs"
+                    ),
+                ]
+            )
+
+            return new_state, split_bmps, success_msg
+
+    except zipfile.BadZipFile:
+        error_msg = html.Div(
+            [
+                html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
+                html.Span("Error: Invalid zip file."),
+            ],
+            style={"color": "red"},
+        )
+        return no_update, no_update, error_msg
+
+    except Exception as e:
+        error_msg = html.Div(
+            [
+                html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
+                html.Span(f"Error: {str(e)}"),
+            ],
+            style={"color": "red"},
+        )
+        return no_update, no_update, error_msg
 
 
 # ============================================================================
