@@ -10,6 +10,7 @@ import numpy as np
 
 from moodhoops.features.slow_down_pattern import slow_down_pattern
 from moodhoops.features.swap_colors import swap_colors
+from moodhoops.utils.colors import ints_to_hex
 
 
 app = dash.Dash(
@@ -388,6 +389,7 @@ swapcolors_page = dbc.Container(
 # ============================================================================
 app.layout = dbc.Container(
     [
+        dcc.Store(id="copied-hex-store"),
         dbc.Row(
             [
                 # Side Navigation
@@ -466,16 +468,66 @@ def display_page(pathname):
 
 
 # ============================================================================
+# Client-side: click pixel to clipboard
+# ============================================================================
+app.clientside_callback(
+    """
+    function(homeClickData, slowdownClickData, swapClickData) {
+        const ctx = dash_clientside.callback_context;
+        if (!ctx.triggered || ctx.triggered.length === 0) {
+            return window.dash_clientside.no_update;
+        }
+
+        const triggeredProp = ctx.triggered[0].prop_id || "";
+        let clickData = null;
+
+        if (triggeredProp.startsWith("home-image-display")) {
+            clickData = homeClickData;
+        } else if (triggeredProp.startsWith("slowdown-image-display")) {
+            clickData = slowdownClickData;
+        } else if (triggeredProp.startsWith("swapcolors-image-display")) {
+            clickData = swapClickData;
+        }
+
+        const hex = clickData?.points?.[0]?.customdata;
+        if (!hex) {
+            return window.dash_clientside.no_update;
+        }
+
+        if (navigator?.clipboard?.writeText) {
+            navigator.clipboard.writeText(hex).catch(() => {});
+        }
+
+        return { hex: hex, copiedAt: Date.now() };
+    }
+    """,
+    Output("copied-hex-store", "data"),
+    Input("home-image-display", "clickData", allow_optional=True),
+    Input("slowdown-image-display", "clickData", allow_optional=True),
+    Input("swapcolors-image-display", "clickData", allow_optional=True),
+    prevent_initial_call=True,
+)
+
+
+# ============================================================================
 # Utility function for pixel-perfect image display
 # ============================================================================
 def create_pixel_perfect_figure(img_array: np.ndarray) -> go.Figure:
     """Create a Plotly figure with pixel-perfect image rendering."""
-    fig = go.Figure(data=go.Image(z=img_array))
+    hex_values = [[ints_to_hex(pixel.tolist()) for pixel in row] for row in img_array]
+
+    fig = go.Figure(
+        data=go.Image(
+            z=img_array,
+            customdata=hex_values,
+            hovertemplate="x: %{x}<br>y: %{y}<br>hex: %{customdata}<extra></extra>",
+        )
+    )
     fig.update_xaxes(showticklabels=False, showgrid=False, zeroline=False)
     fig.update_yaxes(showticklabels=False, showgrid=False, zeroline=False)
     fig.update_layout(
         margin=dict(l=0, r=0, t=0, b=0),
-        hovermode=False,
+        hovermode="closest",
         dragmode=False,
     )
     return fig

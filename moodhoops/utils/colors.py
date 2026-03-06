@@ -40,3 +40,20 @@ def normalize_color(color: Any) -> list[int]:
         return list(color)
     else:
         raise TypeError("Color must be a string (hex), list, or tuple.")
+
+
+def ints_to_hex(rgb: list[int]) -> str:
+    """
+    Convert a list of integers [R, G, B] to a hex color string.
+
+    Parameters:
+        rgb (list[int]): List of integers representing the RGB values.
+
+    Returns:
+        str: Hex color string, e.g. '#FF5733'.
+    """
+    if len(rgb) != 3 or not all(0 <= c <= 255 for c in rgb):
+        raise ValueError(
+            "Input must be a list of three integers [R, G, B] in the range 0-255."
+        )
+    return "#{:02X}{:02X}{:02X}".format(*rgb)
