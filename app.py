@@ -1,16 +1,21 @@
-import base64
-import io
+"""Main application file for MoodHoops Pattern Utils web app."""
 
 import dash
 import dash_bootstrap_components as dbc  # type: ignore
-from dash import dcc, html, callback, Input, Output, State, no_update, ALL
-import plotly.graph_objects as go  # type: ignore
-from PIL import Image
-import numpy as np
+from dash import dcc, html, callback, Input, Output
 
-from moodhoops.features.slow_down_pattern import slow_down_pattern
-from moodhoops.features.swap_colors import swap_colors
-from moodhoops.utils.colors import ints_to_hex
+from webapp.utils import (
+    create_upload_section,
+    create_graph_section,
+    create_message_section,
+    create_swapcolors_mapping_row,
+)
+
+# Import callbacks to register them with the app
+import webapp.home_callbacks  # noqa: F401
+import webapp.slowdown_callbacks  # noqa: F401
+import webapp.swapcolors_callbacks  # noqa: F401
+import webapp.choreography_callbacks  # noqa: F401
 
 
 app = dash.Dash(
@@ -18,127 +23,6 @@ app = dash.Dash(
     external_stylesheets=[dbc.themes.BOOTSTRAP],
     suppress_callback_exceptions=True,
 )
-
-
-def create_upload_section(upload_id: str) -> dbc.Row:
-    """Create a reusable file upload section."""
-    return dbc.Row(
-        [
-            dbc.Col(
-                [
-                    dcc.Upload(
-                        id=upload_id,
-                        children=html.Div(
-                            [
-                                "Drag and drop or ",
-                                html.A("select a .bmp file"),
-                            ]
-                        ),
-                        style={
-                            "width": "100%",
-                            "height": "60px",
-                            "lineHeight": "60px",
-                            "borderWidth": "1px",
-                            "borderStyle": "dashed",
-                            "borderRadius": "5px",
-                            "textAlign": "center",
-                            "margin": "10px",
-                        },
-                        accept=".bmp",
-                    ),
-                ],
-                width=12,
-            )
-        ]
-    )
-
-
-def create_graph_section(graph_id: str) -> dbc.Row:
-    """Create a reusable graph display section."""
-    return dbc.Row(
-        [
-            dbc.Col(
-                [
-                    dcc.Graph(
-                        id=graph_id,
-                        style={"height": "600px"},
-                        config={"responsive": True, "staticPlot": False},
-                    )
-                ],
-                width=12,
-            )
-        ]
-    )
-
-
-def create_message_section(message_id: str) -> dbc.Row:
-    """Create a reusable message display section."""
-    return dbc.Row(
-        [
-            dbc.Col(
-                [html.Div(id=message_id, className="mt-3")],
-                width=12,
-            )
-        ]
-    )
-
-
-def create_swapcolors_mapping_row(
-    index: int,
-    from_value: str | None = None,
-    to_value: str | None = None,
-) -> dbc.Card:
-    """Create one swap-color mapping card with from/to inputs."""
-    return dbc.Card(
-        dbc.CardBody(
-            [
-                dbc.Row(
-                    [
-                        dbc.Col(
-                            html.Div(
-                                f"Mapping {index + 1}",
-                                className="fw-semibold text-muted mb-2",
-                                style={"fontSize": "0.85rem"},
-                            ),
-                            width=9,
-                        ),
-                        dbc.Col(
-                            dbc.Button(
-                                "✕",
-                                id={
-                                    "type": "swapcolors-remove-mapping-btn",
-                                    "index": index,
-                                },
-                                color="light",
-                                size="sm",
-                                title="Remove mapping",
-                                className="py-0 px-2",
-                            ),
-                            width=3,
-                            className="text-end",
-                        ),
-                    ],
-                    align="start",
-                ),
-                dbc.Label("From", className="mb-1"),
-                dbc.Input(
-                    id={"type": "swapcolors-from", "index": index},
-                    type="text",
-                    placeholder="#RRGGBB",
-                    value=from_value,
-                    className="mb-2",
-                ),
-                dbc.Label("To", className="mb-1"),
-                dbc.Input(
-                    id={"type": "swapcolors-to", "index": index},
-                    type="text",
-                    placeholder="#RRGGBB",
-                    value=to_value,
-                ),
-            ]
-        ),
-        className="mb-2",
-    )
 
 
 # ============================================================================
@@ -186,6 +70,14 @@ slowdown_page = dbc.Container(
         ),
         dbc.Row(
             [
+                dbc.Col(
+                    [
+                        create_upload_section("slowdown-upload-image"),
+                        create_message_section("slowdown-output-message"),
+                        create_graph_section("slowdown-image-display"),
+                    ],
+                    width=10,
+                ),
                 dbc.Col(
                     [
                         dbc.Row(
@@ -267,15 +159,7 @@ slowdown_page = dbc.Container(
                             ]
                         ),
                     ],
-                    width=3,
-                ),
-                dbc.Col(
-                    [
-                        create_upload_section("slowdown-upload-image"),
-                        create_message_section("slowdown-output-message"),
-                        create_graph_section("slowdown-image-display"),
-                    ],
-                    width=9,
+                    width=2,
                 ),
             ],
             className="mt-3",
@@ -306,6 +190,14 @@ swapcolors_page = dbc.Container(
         ),
         dbc.Row(
             [
+                dbc.Col(
+                    [
+                        create_upload_section("swapcolors-upload-image"),
+                        create_message_section("swapcolors-output-message"),
+                        create_graph_section("swapcolors-image-display"),
+                    ],
+                    width=10,
+                ),
                 dbc.Col(
                     [
                         dbc.Row(
@@ -367,15 +259,7 @@ swapcolors_page = dbc.Container(
                             ]
                         ),
                     ],
-                    width=3,
-                ),
-                dbc.Col(
-                    [
-                        create_upload_section("swapcolors-upload-image"),
-                        create_message_section("swapcolors-output-message"),
-                        create_graph_section("swapcolors-image-display"),
-                    ],
-                    width=9,
+                    width=2,
                 ),
             ],
             className="mt-3",
@@ -418,18 +302,40 @@ choreography_page = dbc.Container(
             [
                 dbc.Col(
                     [
-                        dbc.Row(
-                            [
-                                dbc.Button(
-                                    "Start / Split (space)",
-                                    id="choreography-start-split-btn",
-                                    color="primary",
-                                    size="lg",
-                                    className="w-100",
-                                ),
-                            ],
-                            className="mb-4",
+                        html.Label(
+                            "Or upload an existing choreography:",
+                            className="fw-bold mb-2",
                         ),
+                        dcc.Upload(
+                            id="choreography-upload-zip",
+                            children=html.Div(
+                                [
+                                    "Drag and drop or ",
+                                    html.A(",select a .zip file"),
+                                ]
+                            ),
+                            style={
+                                "width": "100%",
+                                "height": "60px",
+                                "lineHeight": "60px",
+                                "borderWidth": "1px",
+                                "borderStyle": "dashed",
+                                "borderRadius": "5px",
+                                "textAlign": "center",
+                                "margin": "10px 0",
+                            },
+                            accept=".zip",
+                        ),
+                        html.Div(id="choreography-upload-message"),
+                    ],
+                    className="mb-4",
+                ),
+            ]
+        ),
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
                         dbc.Row(
                             [
                                 html.Div(
@@ -447,6 +353,18 @@ choreography_page = dbc.Container(
                                     },
                                 ),
                             ]
+                        ),
+                        dbc.Row(
+                            [
+                                dbc.Button(
+                                    "Start / Split (space)",
+                                    id="choreography-start-split-btn",
+                                    color="primary",
+                                    size="lg",
+                                    className="w-100",
+                                ),
+                            ],
+                            className="mb-3",
                         ),
                         dbc.Row(
                             [
@@ -480,52 +398,6 @@ choreography_page = dbc.Container(
                         ),
                         dbc.Row(
                             [
-                                dbc.Card(
-                                    dbc.CardBody(
-                                        [
-                                            html.Label(
-                                                "Adjust All Split Times in milliseconds (positive or negative):",
-                                                className="fw-bold mb-2",
-                                            ),
-                                            dbc.Row(
-                                                [
-                                                    dbc.Col(
-                                                        [
-                                                            dbc.Input(
-                                                                id="choreography-time-adjustment",
-                                                                type="number",
-                                                                placeholder="Milliseconds (+/-)",
-                                                                value=0,
-                                                            ),
-                                                        ],
-                                                        width=8,
-                                                    ),
-                                                    dbc.Col(
-                                                        [
-                                                            dbc.Button(
-                                                                "Apply",
-                                                                id="choreography-adjust-time-btn",
-                                                                color="primary",
-                                                                className="w-100",
-                                                            ),
-                                                        ],
-                                                        width=4,
-                                                    ),
-                                                ]
-                                            ),
-                                            html.Div(
-                                                id="choreography-adjustment-message",
-                                                className="mt-2",
-                                            ),
-                                        ]
-                                    ),
-                                    className="mb-3",
-                                ),
-                            ],
-                            className="mb-4",
-                        ),
-                        dbc.Row(
-                            [
                                 dbc.Col(
                                     [
                                         dbc.Button(
@@ -541,37 +413,6 @@ choreography_page = dbc.Container(
                                     width=12,
                                 )
                             ],
-                            className="mb-4",
-                        ),
-                        dbc.Row(
-                            [
-                                html.Label(
-                                    "Upload existing choreography ZIP file:",
-                                    className="fw-bold mb-2",
-                                ),
-                                dcc.Upload(
-                                    id="choreography-upload-zip",
-                                    children=html.Div(
-                                        [
-                                            "Drag and drop or ",
-                                            html.A("select a .zip file"),
-                                        ]
-                                    ),
-                                    style={
-                                        "width": "100%",
-                                        "height": "60px",
-                                        "lineHeight": "60px",
-                                        "borderWidth": "1px",
-                                        "borderStyle": "dashed",
-                                        "borderRadius": "5px",
-                                        "textAlign": "center",
-                                        "margin": "10px 0",
-                                    },
-                                    accept=".zip",
-                                ),
-                                html.Div(id="choreography-upload-message"),
-                            ],
-                            className="mb-4",
                         ),
                     ],
                     width=3,
@@ -579,6 +420,47 @@ choreography_page = dbc.Container(
                 dbc.Col(
                     [
                         html.H4("Splits", className="mb-3"),
+                        dbc.Card(
+                            dbc.CardBody(
+                                [
+                                    html.Label(
+                                        "Adjust All Split Times",
+                                        className="fw-bold mb-2",
+                                    ),
+                                    dbc.Row(
+                                        [
+                                            dbc.Col(
+                                                [
+                                                    dbc.Input(
+                                                        id="choreography-time-adjustment",
+                                                        type="number",
+                                                        placeholder="Milliseconds (+/-)",
+                                                        value=0,
+                                                    ),
+                                                ],
+                                                width=8,
+                                            ),
+                                            dbc.Col(
+                                                [
+                                                    dbc.Button(
+                                                        "Apply",
+                                                        id="choreography-adjust-time-btn",
+                                                        color="primary",
+                                                        className="w-100",
+                                                    ),
+                                                ],
+                                                width=4,
+                                            ),
+                                        ]
+                                    ),
+                                    html.Div(
+                                        id="choreography-adjustment-message",
+                                        className="mt-2",
+                                    ),
+                                ]
+                            ),
+                            className="mb-3",
+                        ),
                         html.Div(id="choreography-splits-display"),
                     ],
                     width=9,
@@ -721,958 +603,6 @@ app.clientside_callback(
     Input("swapcolors-image-display", "clickData", allow_optional=True),
     prevent_initial_call=True,
 )
-
-
-# ============================================================================
-# Utility function for pixel-perfect image display
-# ============================================================================
-def create_pixel_perfect_figure(img_array: np.ndarray) -> go.Figure:
-    """Create a Plotly figure with pixel-perfect image rendering."""
-    hex_values = [[ints_to_hex(pixel.tolist()) for pixel in row] for row in img_array]
-
-    fig = go.Figure(
-        data=go.Image(
-            z=img_array,
-            customdata=hex_values,
-            hovertemplate="x: %{x}<br>y: %{y}<br>hex: %{customdata}<extra></extra>",
-        )
-    )
-    fig.update_xaxes(showticklabels=False, showgrid=False, zeroline=False)
-    fig.update_yaxes(showticklabels=False, showgrid=False, zeroline=False)
-    fig.update_layout(
-        margin=dict(l=0, r=0, t=0, b=0),
-        hovermode="closest",
-        dragmode=False,
-    )
-    return fig
-
-
-def decode_upload_contents(contents: str) -> np.ndarray:
-    """Decode uploaded file contents and return as numpy array."""
-    content_type, content_string = contents.split(",")
-    decoded = base64.b64decode(content_string)
-    image = Image.open(io.BytesIO(decoded)).convert("RGB")
-    return np.array(image)
-
-
-# ============================================================================
-# Callback: Home page upload
-# ============================================================================
-@callback(
-    [Output("home-image-display", "figure"), Output("home-output-message", "children")],
-    Input("home-upload-image", "contents"),
-    prevent_initial_call=True,
-)
-def home_update_image_display(contents):
-    """Display uploaded BMP image with pixel-perfect rendering."""
-    if contents is None:
-        return go.Figure(), ""
-
-    try:
-        img_array = decode_upload_contents(contents)
-        fig = create_pixel_perfect_figure(img_array)
-
-        message = html.Div(
-            [
-                html.Span("✓ ", style={"color": "green", "fontWeight": "bold"}),
-                html.Span(
-                    f"Image loaded: {img_array.shape[1]}×{img_array.shape[0]} pixels"
-                ),
-            ]
-        )
-
-        return fig, message
-
-    except Exception as e:
-        error_message = html.Div(
-            [
-                html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
-                html.Span(f"Error: {str(e)}"),
-            ],
-            style={"color": "red"},
-        )
-        return go.Figure(), error_message
-
-
-# ============================================================================
-# Callback: Slow Down Pattern upload
-# ============================================================================
-@callback(
-    Output("slowdown-image-display", "figure"),
-    Output("slowdown-output-message", "children"),
-    Output("slowdown-image-store", "data"),
-    Output("slowdown-original-image-store", "data"),
-    Input("slowdown-upload-image", "contents"),
-    Input("slowdown-apply-btn", "n_clicks"),
-    State("slowdown-image-store", "data"),
-    State("slowdown-original-image-store", "data"),
-    State("slowdown-mode-speed", "value"),
-    State("slowdown-desired-speed", "value"),
-    prevent_initial_call=True,
-)
-def slowdown_update_image_display(
-    contents,
-    n_clicks,
-    stored_image,
-    original_stored_image,
-    mode_speed,
-    desired_speed,
-):
-    """Handle slow down pattern upload and apply actions."""
-    triggered = dash.callback_context.triggered_id
-
-    try:
-        if triggered == "slowdown-upload-image":
-            if contents is None:
-                return go.Figure(), "", None, None
-
-            img_array = decode_upload_contents(contents)
-            fig = create_pixel_perfect_figure(img_array)
-
-            message = html.Div(
-                [
-                    html.Span("✓ ", style={"color": "green", "fontWeight": "bold"}),
-                    html.Span(
-                        f"Image loaded: {img_array.shape[1]}×{img_array.shape[0]} pixels"
-                    ),
-                ]
-            )
-
-            image_data = img_array.tolist()
-            return fig, message, image_data, image_data
-
-        if triggered == "slowdown-apply-btn":
-            if original_stored_image is None:
-                error_message = html.Div(
-                    [
-                        html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
-                        html.Span("No image uploaded. Please upload an image first."),
-                    ],
-                    style={"color": "red"},
-                )
-                return go.Figure(), error_message, stored_image, original_stored_image
-
-            # Always apply to the original uploaded image, not the currently displayed result
-            img_array = np.array(original_stored_image, dtype=np.uint8)
-            result_array = slow_down_pattern(img_array, mode_speed, desired_speed)
-            fig = create_pixel_perfect_figure(result_array)
-
-            message = html.Div(
-                [
-                    html.Span("✓ ", style={"color": "green", "fontWeight": "bold"}),
-                    html.Span(
-                        f"Applied slow down: {mode_speed}→{desired_speed} RPS. "
-                        f"Result: {result_array.shape[1]}×{result_array.shape[0]} pixels"
-                    ),
-                ]
-            )
-
-            return fig, message, result_array.tolist(), original_stored_image
-
-        return go.Figure(), "", stored_image, original_stored_image
-
-    except ValueError as e:
-        error_message = html.Div(
-            [
-                html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
-                html.Span(f"Validation error: {str(e)}"),
-            ],
-            style={"color": "red"},
-        )
-        return go.Figure(), error_message, stored_image, original_stored_image
-
-    except Exception as e:
-        error_message = html.Div(
-            [
-                html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
-                html.Span(f"Error: {str(e)}"),
-            ],
-            style={"color": "red"},
-        )
-        return go.Figure(), error_message, stored_image, original_stored_image
-
-
-# ============================================================================
-# Callback: Swap Colors mapping rows
-# ============================================================================
-@callback(
-    Output("swapcolors-mapping-rows", "children"),
-    Output("swapcolors-mapping-count", "data"),
-    Output("swapcolors-mapping-indices", "data"),
-    Input("swapcolors-add-mapping-btn", "n_clicks"),
-    Input({"type": "swapcolors-remove-mapping-btn", "index": ALL}, "n_clicks"),
-    State("swapcolors-mapping-count", "data"),
-    State("swapcolors-mapping-indices", "data"),
-    State({"type": "swapcolors-from", "index": ALL}, "id"),
-    State({"type": "swapcolors-from", "index": ALL}, "value"),
-    State({"type": "swapcolors-to", "index": ALL}, "id"),
-    State({"type": "swapcolors-to", "index": ALL}, "value"),
-    prevent_initial_call=True,
-)
-def add_swapcolors_mapping_row(
-    add_clicks,
-    remove_clicks,
-    mapping_count,
-    mapping_indices,
-    from_ids,
-    from_values,
-    to_ids,
-    to_values,
-):
-    """Add/remove swap-color mapping cards."""
-    indices = list(mapping_indices or [0])
-    triggered = dash.callback_context.triggered_id
-
-    # Preserve currently typed values for existing mapping indices.
-    from_by_index = {
-        item["index"]: value
-        for item, value in zip(from_ids or [], from_values or [])
-        if isinstance(item, dict) and "index" in item
-    }
-    to_by_index = {
-        item["index"]: value
-        for item, value in zip(to_ids or [], to_values or [])
-        if isinstance(item, dict) and "index" in item
-    }
-
-    if (
-        isinstance(triggered, dict)
-        and triggered.get("type") == "swapcolors-remove-mapping-btn"
-    ):
-        remove_index = triggered.get("index")
-        indices = [idx for idx in indices if idx != remove_index]
-    elif triggered == "swapcolors-add-mapping-btn":
-        indices.append(mapping_count)
-        mapping_count += 1
-
-    rows = [
-        create_swapcolors_mapping_row(
-            idx,
-            from_value=from_by_index.get(idx),
-            to_value=to_by_index.get(idx),
-        )
-        for idx in indices
-    ]
-    return rows, mapping_count, indices
-
-
-# ============================================================================
-# Callback: Swap Colors upload/apply
-# ============================================================================
-@callback(
-    Output("swapcolors-image-display", "figure"),
-    Output("swapcolors-output-message", "children"),
-    Output("swapcolors-image-store", "data"),
-    Output("swapcolors-original-image-store", "data"),
-    Input("swapcolors-upload-image", "contents"),
-    Input("swapcolors-apply-btn", "n_clicks"),
-    State("swapcolors-image-store", "data"),
-    State("swapcolors-original-image-store", "data"),
-    State({"type": "swapcolors-from", "index": ALL}, "value"),
-    State({"type": "swapcolors-to", "index": ALL}, "value"),
-    prevent_initial_call=True,
-)
-def swapcolors_update_image_display(
-    contents,
-    n_clicks,
-    stored_image,
-    original_stored_image,
-    from_values,
-    to_values,
-):
-    """Handle swap colors upload and apply actions."""
-    triggered = dash.callback_context.triggered_id
-
-    try:
-        if triggered == "swapcolors-upload-image":
-            if contents is None:
-                return go.Figure(), "", None, None
-
-            img_array = decode_upload_contents(contents)
-            fig = create_pixel_perfect_figure(img_array)
-
-            message = html.Div(
-                [
-                    html.Span("✓ ", style={"color": "green", "fontWeight": "bold"}),
-                    html.Span(
-                        f"Image loaded: {img_array.shape[1]}×{img_array.shape[0]} pixels"
-                    ),
-                ]
-            )
-
-            image_data = img_array.tolist()
-            return fig, message, image_data, image_data
-
-        if triggered == "swapcolors-apply-btn":
-            if original_stored_image is None:
-                error_message = html.Div(
-                    [
-                        html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
-                        html.Span("No image uploaded. Please upload an image first."),
-                    ],
-                    style={"color": "red"},
-                )
-                return (
-                    go.Figure(),
-                    error_message,
-                    stored_image,
-                    original_stored_image,
-                )
-
-            valid_mappings = []
-            for from_color, to_color in zip(from_values or [], to_values or []):
-                from_color = (from_color or "").strip()
-                to_color = (to_color or "").strip()
-                if from_color and to_color:
-                    valid_mappings.append({"from": from_color, "to": to_color})
-
-            if not valid_mappings:
-                error_message = html.Div(
-                    [
-                        html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
-                        html.Span(
-                            "Add at least one valid mapping with both From and To colors."
-                        ),
-                    ],
-                    style={"color": "red"},
-                )
-                return (
-                    go.Figure(),
-                    error_message,
-                    stored_image,
-                    original_stored_image,
-                )
-
-            img_array = np.array(original_stored_image, dtype=np.uint8)
-            result_array = swap_colors(img_array, valid_mappings)
-            fig = create_pixel_perfect_figure(result_array)
-
-            message = html.Div(
-                [
-                    html.Span("✓ ", style={"color": "green", "fontWeight": "bold"}),
-                    html.Span(
-                        f"Applied {len(valid_mappings)} color mapping(s). "
-                        f"Result: {result_array.shape[1]}×{result_array.shape[0]} pixels"
-                    ),
-                ]
-            )
-
-            return fig, message, result_array.tolist(), original_stored_image
-
-        return go.Figure(), "", stored_image, original_stored_image
-
-    except ValueError as e:
-        error_message = html.Div(
-            [
-                html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
-                html.Span(f"Validation error: {str(e)}"),
-            ],
-            style={"color": "red"},
-        )
-        return go.Figure(), error_message, stored_image, original_stored_image
-
-    except Exception as e:
-        error_message = html.Div(
-            [
-                html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
-                html.Span(f"Error: {str(e)}"),
-            ],
-            style={"color": "red"},
-        )
-        return go.Figure(), error_message, stored_image, original_stored_image
-
-
-# ============================================================================
-# Callback: Slow Down Pattern download
-# ============================================================================
-@callback(
-    Output("slowdown-download-bmp", "data"),
-    Input("slowdown-download-btn", "n_clicks"),
-    State("slowdown-image-store", "data"),
-    prevent_initial_call=True,
-)
-def download_slowdown_image(n_clicks, stored_image):
-    """Download the currently displayed slow down image as a BMP file."""
-    if not n_clicks or stored_image is None:
-        return no_update
-
-    img_array = np.array(stored_image, dtype=np.uint8)
-
-    def write_bmp(bytes_io):
-        Image.fromarray(img_array).save(bytes_io, format="BMP")
-
-    return dcc.send_bytes(write_bmp, "slowdown_pattern.bmp")
-
-
-# ============================================================================
-# Callback: Swap Colors download
-# ============================================================================
-@callback(
-    Output("swapcolors-download-bmp", "data"),
-    Input("swapcolors-download-btn", "n_clicks"),
-    State("swapcolors-image-store", "data"),
-    prevent_initial_call=True,
-)
-def download_swapcolors_image(n_clicks, stored_image):
-    """Download the currently displayed swap colors image as a BMP file."""
-    if not n_clicks or stored_image is None:
-        return no_update
-
-    img_array = np.array(stored_image, dtype=np.uint8)
-
-    def write_bmp(bytes_io):
-        Image.fromarray(img_array).save(bytes_io, format="BMP")
-
-    return dcc.send_bytes(write_bmp, "swap_colors_pattern.bmp")
-
-
-# ============================================================================
-# Callback: Adjust all split times
-# ============================================================================
-@callback(
-    Output("choreography-timer-state", "data", allow_duplicate=True),
-    Output("choreography-adjustment-message", "children"),
-    Input("choreography-adjust-time-btn", "n_clicks"),
-    State("choreography-time-adjustment", "value"),
-    State("choreography-timer-state", "data"),
-    prevent_initial_call=True,
-)
-def choreography_adjust_times(n_clicks, adjustment_ms, state):
-    """Adjust all split times by the specified milliseconds."""
-    if not n_clicks or adjustment_ms is None:
-        return no_update, ""
-
-    try:
-        adjustment_ms = int(adjustment_ms)
-        if adjustment_ms == 0:
-            return no_update, ""
-
-        splits = state.get("splits", ["00:00:000"])
-
-        if len(splits) <= 1:
-            warning_msg = html.Div(
-                [
-                    html.Span("⚠ ", style={"color": "orange", "fontWeight": "bold"}),
-                    html.Span("No splits to adjust."),
-                ],
-                style={"color": "orange"},
-            )
-            return no_update, warning_msg
-
-        # Parse and adjust all splits except the first one
-        new_splits = [splits[0]]  # Keep 00:00:000
-
-        for split_time in splits[1:]:
-            # Parse MM:SS:mmm
-            parts = split_time.split(":")
-            if len(parts) != 3:
-                continue
-
-            minutes = int(parts[0])
-            seconds = int(parts[1])
-            milliseconds = int(parts[2])
-
-            # Convert to total milliseconds
-            total_ms = (minutes * 60 * 1000) + (seconds * 1000) + milliseconds
-
-            # Apply adjustment
-            new_total_ms = total_ms + adjustment_ms
-
-            # Ensure non-negative
-            if new_total_ms < 0:
-                new_total_ms = 0
-
-            # Convert back to MM:SS:mmm
-            new_minutes = new_total_ms // (60 * 1000)
-            remainder = new_total_ms % (60 * 1000)
-            new_seconds = remainder // 1000
-            new_milliseconds = remainder % 1000
-
-            new_split = f"{new_minutes:02d}:{new_seconds:02d}:{new_milliseconds:03d}"
-            new_splits.append(new_split)
-
-        # Update state
-        new_state = {
-            "running": state.get("running", False),
-            "splits": new_splits,
-            "startTime": state.get("startTime"),
-        }
-
-        direction = "forward" if adjustment_ms > 0 else "backward"
-        success_msg = html.Div(
-            [
-                html.Span("✓ ", style={"color": "green", "fontWeight": "bold"}),
-                html.Span(
-                    f"Adjusted {len(new_splits) - 1} splits {direction} by {abs(adjustment_ms)}ms"
-                ),
-            ]
-        )
-
-        return new_state, success_msg
-
-    except Exception as e:
-        error_msg = html.Div(
-            [
-                html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
-                html.Span(f"Error: {str(e)}"),
-            ],
-            style={"color": "red"},
-        )
-        return no_update, error_msg
-
-
-# ============================================================================
-# Callback: Choreography timer control
-# ============================================================================
-@callback(
-    Output("choreography-timer-state", "data"),
-    Output("choreography-interval", "disabled"),
-    Output("choreography-split-bmps", "data", allow_duplicate=True),
-    Input("choreography-start-split-btn", "n_clicks"),
-    Input("choreography-stop-btn", "n_clicks"),
-    Input("choreography-reset-btn", "n_clicks"),
-    State("choreography-timer-state", "data"),
-    prevent_initial_call=True,
-)
-def choreography_control_timer(start_clicks, stop_clicks, reset_clicks, state):
-    """Control the choreography timer (start/split/stop/reset)."""
-    import time
-
-    triggered = dash.callback_context.triggered_id
-
-    if triggered == "choreography-reset-btn":
-        return (
-            {
-                "running": False,
-                "splits": ["00:00:000"],
-                "startTime": None,
-            },
-            True,
-            {},
-        )
-
-    if triggered == "choreography-start-split-btn":
-        if not state["running"]:
-            # Start the timer
-            return (
-                {
-                    "running": True,
-                    "splits": ["00:00:000"],
-                    "startTime": time.time(),
-                },
-                False,
-                no_update,
-            )
-        else:
-            # Add a split
-            elapsed = time.time() - state["startTime"]
-            minutes = int(elapsed // 60)
-            seconds = int(elapsed % 60)
-            milliseconds = int((elapsed % 1) * 1000)
-            split_time = f"{minutes:02d}:{seconds:02d}:{milliseconds:03d}"
-
-            new_splits = state["splits"] + [split_time]
-            return (
-                {
-                    "running": True,
-                    "splits": new_splits,
-                    "startTime": state["startTime"],
-                },
-                False,
-                no_update,
-            )
-
-    if triggered == "choreography-stop-btn":
-        return (
-            {
-                "running": False,
-                "splits": state["splits"],
-                "startTime": state["startTime"],
-            },
-            True,
-            no_update,
-        )
-
-    return state, not state["running"], no_update
-
-
-# ============================================================================
-# Callback: Update choreography timer display
-# ============================================================================
-@callback(
-    Output("choreography-timer-display", "children"),
-    Input("choreography-interval", "n_intervals"),
-    Input("choreography-timer-state", "data"),
-)
-def choreography_update_timer_display(n_intervals, state):
-    """Update the timer display."""
-    import time
-
-    if not state["running"] or state["startTime"] is None:
-        if state["splits"]:
-            return state["splits"][-1]
-        return "00:00:000"
-
-    elapsed = time.time() - state["startTime"]
-    minutes = int(elapsed // 60)
-    seconds = int(elapsed % 60)
-    milliseconds = int((elapsed % 1) * 1000)
-
-    return f"{minutes:02d}:{seconds:02d}:{milliseconds:03d}"
-
-
-# ============================================================================
-# Callback: Display choreography splits
-# ============================================================================
-@callback(
-    Output("choreography-splits-display", "children"),
-    Input("choreography-timer-state", "data"),
-    Input("choreography-split-bmps", "data"),
-)
-def choreography_display_splits(state, split_bmps):
-    """Display all recorded splits in cards."""
-    splits = state.get("splits", ["00:00:000"])
-    split_bmps = split_bmps or {}
-
-    cards = []
-    for i, split_time in enumerate(splits):
-        bmp_info = split_bmps.get(str(i))
-
-        card_content = [
-            dbc.Row(
-                [
-                    dbc.Col(
-                        html.Div(
-                            f"Split {i + 1}",
-                            className="fw-semibold text-muted",
-                            style={"fontSize": "0.9rem"},
-                        ),
-                        width=4,
-                    ),
-                    dbc.Col(
-                        html.Div(
-                            split_time,
-                            className="fw-bold",
-                            style={
-                                "fontSize": "1.2rem",
-                                "fontFamily": "monospace",
-                                "textAlign": "right",
-                            },
-                        ),
-                        width=8,
-                    ),
-                ]
-            ),
-            html.Hr(className="my-2"),
-            dbc.Row(
-                [
-                    dbc.Col(
-                        [
-                            dcc.Upload(
-                                id={"type": "choreography-upload-split", "index": i},
-                                children=html.Div(
-                                    [
-                                        "Drag or ",
-                                        html.A("select .bmp"),
-                                    ]
-                                ),
-                                style={
-                                    "width": "100%",
-                                    "height": "40px",
-                                    "lineHeight": "40px",
-                                    "borderWidth": "1px",
-                                    "borderStyle": "dashed",
-                                    "borderRadius": "5px",
-                                    "textAlign": "center",
-                                    "fontSize": "0.85rem",
-                                },
-                                accept=".bmp",
-                            ),
-                        ],
-                        width=12,
-                    )
-                ],
-                className="mb-2",
-            ),
-        ]
-
-        if bmp_info:
-            card_content.append(
-                dbc.Row(
-                    [
-                        dbc.Col(
-                            [
-                                html.Div(
-                                    [
-                                        html.Span("✓ ", style={"color": "green"}),
-                                        html.Span(
-                                            f"{bmp_info['filename']} ({bmp_info['width']}×{bmp_info['height']})",
-                                            style={"fontSize": "0.85rem"},
-                                        ),
-                                    ]
-                                )
-                            ],
-                            width=12,
-                        )
-                    ]
-                )
-            )
-
-        card = dbc.Card(
-            dbc.CardBody(card_content),
-            className="mb-2",
-        )
-        cards.append(card)
-
-    return cards
-
-
-# ============================================================================
-# Callback: Handle BMP uploads for choreography splits
-# ============================================================================
-@callback(
-    Output("choreography-split-bmps", "data"),
-    Input({"type": "choreography-upload-split", "index": ALL}, "contents"),
-    Input({"type": "choreography-upload-split", "index": ALL}, "filename"),
-    State({"type": "choreography-upload-split", "index": ALL}, "id"),
-    State("choreography-split-bmps", "data"),
-    prevent_initial_call=True,
-)
-def choreography_handle_split_uploads(
-    contents_list, filenames_list, ids_list, split_bmps
-):
-    """Handle BMP file uploads for each split."""
-    split_bmps = split_bmps or {}
-
-    triggered = dash.callback_context.triggered_id
-    if not triggered or not isinstance(triggered, dict):
-        return split_bmps
-
-    # Find which upload triggered
-    split_index = triggered.get("index")
-    if split_index is None:
-        return split_bmps
-
-    # Find the corresponding content and filename
-    for upload_id, content, filename in zip(ids_list, contents_list, filenames_list):
-        if upload_id["index"] == split_index and content:
-            try:
-                img_array = decode_upload_contents(content)
-                split_bmps[str(split_index)] = {
-                    "filename": filename,
-                    "width": img_array.shape[1],
-                    "height": img_array.shape[0],
-                    "contents": content,
-                }
-                break
-            except Exception:
-                # If there's an error, just skip this upload
-                pass
-
-    return split_bmps
-
-
-# ============================================================================
-# Callback: Upload choreography zip file
-# ============================================================================
-@callback(
-    Output("choreography-timer-state", "data", allow_duplicate=True),
-    Output("choreography-split-bmps", "data", allow_duplicate=True),
-    Output("choreography-upload-message", "children"),
-    Input("choreography-upload-zip", "contents"),
-    State("choreography-upload-zip", "filename"),
-    prevent_initial_call=True,
-)
-def choreography_upload_zip(contents, filename):
-    """Upload and parse choreography zip file."""
-    if not contents:
-        return no_update, no_update, ""
-
-    import zipfile
-
-    try:
-        # Decode the uploaded file
-        content_type, content_string = contents.split(",")
-        decoded = base64.b64decode(content_string)
-        zip_bytes = io.BytesIO(decoded)
-
-        # Open and validate zip file
-        with zipfile.ZipFile(zip_bytes, "r") as zf:
-            file_list = zf.namelist()
-
-            # Find .mhc and .bmp files
-            mhc_files = [f for f in file_list if f.lower().endswith(".mhc")]
-            bmp_files = [f for f in file_list if f.lower().endswith(".bmp")]
-            other_files = [
-                f
-                for f in file_list
-                if not f.lower().endswith(".mhc")
-                and not f.lower().endswith(".bmp")
-                and not f.endswith("/")
-            ]
-
-            # Validation
-            if len(mhc_files) == 0:
-                error_msg = html.Div(
-                    [
-                        html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
-                        html.Span("Error: No .mhc file found in zip."),
-                    ],
-                    style={"color": "red"},
-                )
-                return no_update, no_update, error_msg
-
-            if len(mhc_files) > 1:
-                error_msg = html.Div(
-                    [
-                        html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
-                        html.Span(
-                            f"Error: Multiple .mhc files found. Expected 1, found {len(mhc_files)}."
-                        ),
-                    ],
-                    style={"color": "red"},
-                )
-                return no_update, no_update, error_msg
-
-            if len(bmp_files) == 0:
-                error_msg = html.Div(
-                    [
-                        html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
-                        html.Span("Error: No .bmp files found in zip."),
-                    ],
-                    style={"color": "red"},
-                )
-                return no_update, no_update, error_msg
-
-            if len(other_files) > 0:
-                error_msg = html.Div(
-                    [
-                        html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
-                        html.Span(
-                            f"Error: Invalid files found (only .mhc and .bmp allowed): {', '.join(other_files)}"
-                        ),
-                    ],
-                    style={"color": "red"},
-                )
-                return no_update, no_update, error_msg
-
-            # Read and parse .mhc file
-            mhc_content = zf.read(mhc_files[0]).decode("utf-8")
-            split_times = [
-                line.strip() for line in mhc_content.strip().split("\n") if line.strip()
-            ]
-
-            # Add initial 00:00:000 split
-            all_splits = ["00:00:000"] + split_times
-
-            # Sort BMP files alphabetically
-            bmp_files.sort()
-
-            # Read BMP files and create split_bmps mapping
-            split_bmps = {}
-            for i, bmp_filename in enumerate(bmp_files):
-                if i < len(
-                    all_splits
-                ):  # Only process BMPs if we have corresponding splits
-                    bmp_data = zf.read(bmp_filename)
-
-                    # Convert to base64 for storage (same format as upload)
-                    bmp_base64 = base64.b64encode(bmp_data).decode("utf-8")
-                    bmp_contents = f"data:image/bmp;base64,{bmp_base64}"
-
-                    # Decode to get dimensions
-                    img = Image.open(io.BytesIO(bmp_data)).convert("RGB")
-                    img_array = np.array(img)
-
-                    split_bmps[str(i)] = {
-                        "filename": bmp_filename,
-                        "width": img_array.shape[1],
-                        "height": img_array.shape[0],
-                        "contents": bmp_contents,
-                    }
-
-            # Create new timer state
-            new_state = {
-                "running": False,
-                "splits": all_splits,
-                "startTime": None,
-            }
-
-            success_msg = html.Div(
-                [
-                    html.Span("✓ ", style={"color": "green", "fontWeight": "bold"}),
-                    html.Span(
-                        f"Loaded choreography: {len(split_times)} splits, {len(bmp_files)} BMPs"
-                    ),
-                ]
-            )
-
-            return new_state, split_bmps, success_msg
-
-    except zipfile.BadZipFile:
-        error_msg = html.Div(
-            [
-                html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
-                html.Span("Error: Invalid zip file."),
-            ],
-            style={"color": "red"},
-        )
-        return no_update, no_update, error_msg
-
-    except Exception as e:
-        error_msg = html.Div(
-            [
-                html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
-                html.Span(f"Error: {str(e)}"),
-            ],
-            style={"color": "red"},
-        )
-        return no_update, no_update, error_msg
-
-
-# ============================================================================
-# Callback: Download choreography as zip file
-# ============================================================================
-@callback(
-    Output("choreography-download-zip", "data"),
-    Input("choreography-download-btn", "n_clicks"),
-    State("choreography-timer-state", "data"),
-    State("choreography-split-bmps", "data"),
-    prevent_initial_call=True,
-)
-def choreography_download_zip(n_clicks, state, split_bmps):
-    """Download choreography as a zip file with .mhc file and BMP files."""
-    if not n_clicks:
-        return no_update
-
-    import zipfile
-
-    splits = state.get("splits", ["00:00:000"])
-    split_bmps = split_bmps or {}
-
-    def create_choreo_zip(bytes_io):
-        with zipfile.ZipFile(bytes_io, "w", zipfile.ZIP_DEFLATED) as zf:
-            # Create choreo.mhc file with splits (excluding the first 00:00:000)
-            choreo_content = "\n".join(splits[1:])
-            zf.writestr("choreo.mhc", choreo_content)
-
-            # Add BMP files with zero-padded index names
-            for i in range(len(splits)):
-                bmp_info = split_bmps.get(str(i))
-                if bmp_info and "contents" in bmp_info:
-                    # Decode the BMP content
-                    img_array = decode_upload_contents(bmp_info["contents"])
-
-                    # Create BMP in memory
-                    bmp_bytes = io.BytesIO()
-                    Image.fromarray(img_array).save(bmp_bytes, format="BMP")
-                    bmp_bytes.seek(0)
-
-                    # Add to zip with zero-padded index name
-                    filename = f"{i:03d}.bmp"
-                    zf.writestr(filename, bmp_bytes.read())
-
-    return dcc.send_bytes(create_choreo_zip, "choreography.zip")
 
 
 # ============================================================================
