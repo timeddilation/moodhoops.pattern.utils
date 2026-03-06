@@ -480,6 +480,52 @@ choreography_page = dbc.Container(
                         ),
                         dbc.Row(
                             [
+                                dbc.Card(
+                                    dbc.CardBody(
+                                        [
+                                            html.Label(
+                                                "Adjust All Split Times in milliseconds (positive or negative):",
+                                                className="fw-bold mb-2",
+                                            ),
+                                            dbc.Row(
+                                                [
+                                                    dbc.Col(
+                                                        [
+                                                            dbc.Input(
+                                                                id="choreography-time-adjustment",
+                                                                type="number",
+                                                                placeholder="Milliseconds (+/-)",
+                                                                value=0,
+                                                            ),
+                                                        ],
+                                                        width=8,
+                                                    ),
+                                                    dbc.Col(
+                                                        [
+                                                            dbc.Button(
+                                                                "Apply",
+                                                                id="choreography-adjust-time-btn",
+                                                                color="primary",
+                                                                className="w-100",
+                                                            ),
+                                                        ],
+                                                        width=4,
+                                                    ),
+                                                ]
+                                            ),
+                                            html.Div(
+                                                id="choreography-adjustment-message",
+                                                className="mt-2",
+                                            ),
+                                        ]
+                                    ),
+                                    className="mb-3",
+                                ),
+                            ],
+                            className="mb-4",
+                        ),
+                        dbc.Row(
+                            [
                                 dbc.Col(
                                     [
                                         dbc.Button(
@@ -1078,6 +1124,101 @@ def download_swapcolors_image(n_clicks, stored_image):
         Image.fromarray(img_array).save(bytes_io, format="BMP")
 
     return dcc.send_bytes(write_bmp, "swap_colors_pattern.bmp")
+
+
+# ============================================================================
+# Callback: Adjust all split times
+# ============================================================================
+@callback(
+    Output("choreography-timer-state", "data", allow_duplicate=True),
+    Output("choreography-adjustment-message", "children"),
+    Input("choreography-adjust-time-btn", "n_clicks"),
+    State("choreography-time-adjustment", "value"),
+    State("choreography-timer-state", "data"),
+    prevent_initial_call=True,
+)
+def choreography_adjust_times(n_clicks, adjustment_ms, state):
+    """Adjust all split times by the specified milliseconds."""
+    if not n_clicks or adjustment_ms is None:
+        return no_update, ""
+
+    try:
+        adjustment_ms = int(adjustment_ms)
+        if adjustment_ms == 0:
+            return no_update, ""
+
+        splits = state.get("splits", ["00:00:000"])
+
+        if len(splits) <= 1:
+            warning_msg = html.Div(
+                [
+                    html.Span("⚠ ", style={"color": "orange", "fontWeight": "bold"}),
+                    html.Span("No splits to adjust."),
+                ],
+                style={"color": "orange"},
+            )
+            return no_update, warning_msg
+
+        # Parse and adjust all splits except the first one
+        new_splits = [splits[0]]  # Keep 00:00:000
+
+        for split_time in splits[1:]:
+            # Parse MM:SS:mmm
+            parts = split_time.split(":")
+            if len(parts) != 3:
+                continue
+
+            minutes = int(parts[0])
+            seconds = int(parts[1])
+            milliseconds = int(parts[2])
+
+            # Convert to total milliseconds
+            total_ms = (minutes * 60 * 1000) + (seconds * 1000) + milliseconds
+
+            # Apply adjustment
+            new_total_ms = total_ms + adjustment_ms
+
+            # Ensure non-negative
+            if new_total_ms < 0:
+                new_total_ms = 0
+
+            # Convert back to MM:SS:mmm
+            new_minutes = new_total_ms // (60 * 1000)
+            remainder = new_total_ms % (60 * 1000)
+            new_seconds = remainder // 1000
+            new_milliseconds = remainder % 1000
+
+            new_split = f"{new_minutes:02d}:{new_seconds:02d}:{new_milliseconds:03d}"
+            new_splits.append(new_split)
+
+        # Update state
+        new_state = {
+            "running": state.get("running", False),
+            "splits": new_splits,
+            "startTime": state.get("startTime"),
+        }
+
+        direction = "forward" if adjustment_ms > 0 else "backward"
+        success_msg = html.Div(
+            [
+                html.Span("✓ ", style={"color": "green", "fontWeight": "bold"}),
+                html.Span(
+                    f"Adjusted {len(new_splits) - 1} splits {direction} by {abs(adjustment_ms)}ms"
+                ),
+            ]
+        )
+
+        return new_state, success_msg
+
+    except Exception as e:
+        error_msg = html.Div(
+            [
+                html.Span("✗ ", style={"color": "red", "fontWeight": "bold"}),
+                html.Span(f"Error: {str(e)}"),
+            ],
+            style={"color": "red"},
+        )
+        return no_update, error_msg
 
 
 # ============================================================================
