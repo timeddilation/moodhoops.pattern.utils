@@ -188,14 +188,6 @@ slowdown_page = dbc.Container(
             [
                 dbc.Col(
                     [
-                        create_upload_section("slowdown-upload-image"),
-                        create_message_section("slowdown-output-message"),
-                        create_graph_section("slowdown-image-display"),
-                    ],
-                    width=10,
-                ),
-                dbc.Col(
-                    [
                         dbc.Row(
                             [
                                 dbc.Col(
@@ -275,7 +267,15 @@ slowdown_page = dbc.Container(
                             ]
                         ),
                     ],
-                    width=2,
+                    width=3,
+                ),
+                dbc.Col(
+                    [
+                        create_upload_section("slowdown-upload-image"),
+                        create_message_section("slowdown-output-message"),
+                        create_graph_section("slowdown-image-display"),
+                    ],
+                    width=9,
                 ),
             ],
             className="mt-3",
@@ -306,14 +306,6 @@ swapcolors_page = dbc.Container(
         ),
         dbc.Row(
             [
-                dbc.Col(
-                    [
-                        create_upload_section("swapcolors-upload-image"),
-                        create_message_section("swapcolors-output-message"),
-                        create_graph_section("swapcolors-image-display"),
-                    ],
-                    width=10,
-                ),
                 dbc.Col(
                     [
                         dbc.Row(
@@ -375,7 +367,15 @@ swapcolors_page = dbc.Container(
                             ]
                         ),
                     ],
-                    width=2,
+                    width=3,
+                ),
+                dbc.Col(
+                    [
+                        create_upload_section("swapcolors-upload-image"),
+                        create_message_section("swapcolors-output-message"),
+                        create_graph_section("swapcolors-image-display"),
+                    ],
+                    width=9,
                 ),
             ],
             className="mt-3",
