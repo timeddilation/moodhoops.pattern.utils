@@ -108,7 +108,6 @@ def choreography_adjust_times(n_clicks, adjustment_ms, state):
 
 @callback(
     Output("choreography-timer-state", "data"),
-    Output("choreography-interval", "disabled"),
     Output("choreography-split-bmps", "data", allow_duplicate=True),
     Input("choreography-start-split-btn", "n_clicks"),
     Input("choreography-stop-btn", "n_clicks"),
@@ -127,20 +126,18 @@ def choreography_control_timer(start_clicks, stop_clicks, reset_clicks, state):
                 "splits": ["00:00:000"],
                 "startTime": None,
             },
-            True,
             {},
         )
 
     if triggered == "choreography-start-split-btn":
         if not state["running"]:
-            # Start the timer
+            # Start the timer - use JavaScript timestamp (seconds since epoch)
             return (
                 {
                     "running": True,
                     "splits": ["00:00:000"],
                     "startTime": time.time(),
                 },
-                False,
                 no_update,
             )
         else:
@@ -158,7 +155,6 @@ def choreography_control_timer(start_clicks, stop_clicks, reset_clicks, state):
                     "splits": new_splits,
                     "startTime": state["startTime"],
                 },
-                False,
                 no_update,
             )
 
@@ -169,31 +165,10 @@ def choreography_control_timer(start_clicks, stop_clicks, reset_clicks, state):
                 "splits": state["splits"],
                 "startTime": state["startTime"],
             },
-            True,
             no_update,
         )
 
-    return state, not state["running"], no_update
-
-
-@callback(
-    Output("choreography-timer-display", "children"),
-    Input("choreography-interval", "n_intervals"),
-    Input("choreography-timer-state", "data"),
-)
-def choreography_update_timer_display(n_intervals, state):
-    """Update the timer display."""
-    if not state["running"] or state["startTime"] is None:
-        if state["splits"]:
-            return state["splits"][-1]
-        return "00:00:000"
-
-    elapsed = time.time() - state["startTime"]
-    minutes = int(elapsed // 60)
-    seconds = int(elapsed % 60)
-    milliseconds = int((elapsed % 1) * 1000)
-
-    return f"{minutes:02d}:{seconds:02d}:{milliseconds:03d}"
+    return state, no_update
 
 
 @callback(

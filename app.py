@@ -284,7 +284,6 @@ choreography_page = dbc.Container(
             id="choreography-split-bmps",
             data={},
         ),
-        dcc.Interval(id="choreography-interval", interval=10, disabled=True),
         dbc.Row(
             [
                 dbc.Col(
@@ -609,6 +608,43 @@ app.clientside_callback(
 
 
 # ============================================================================
+# Client-side: Timer display (runs completely in browser)
+# ============================================================================
+app.clientside_callback(
+    """
+    function(state) {
+        if (!state) {
+            return '00:00:000';
+        }
+
+        // If not running, show the last split time
+        if (!state.running || state.startTime === null) {
+            if (state.splits && state.splits.length > 0) {
+                return state.splits[state.splits.length - 1];
+            }
+            return '00:00:000';
+        }
+
+        // Calculate elapsed time
+        const elapsed = (Date.now() / 1000) - state.startTime;
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = Math.floor(elapsed % 60);
+        const milliseconds = Math.floor((elapsed % 1) * 1000);
+
+        // Format as MM:SS:mmm
+        const mm = String(minutes).padStart(2, '0');
+        const ss = String(seconds).padStart(2, '0');
+        const mmm = String(milliseconds).padStart(3, '0');
+
+        return `${mm}:${ss}:${mmm}`;
+    }
+    """,
+    Output("choreography-timer-display", "children"),
+    Input("choreography-timer-state", "data"),
+)
+
+
+# ============================================================================
 # Client-side: Space bar trigger for start/split
 # ============================================================================
 app.clientside_callback(
@@ -638,6 +674,46 @@ app.clientside_callback(
     """,
     Output("choreography-start-split-btn", "n_clicks", allow_duplicate=True),
     Input("url", "pathname"),
+    prevent_initial_call=True,
+)
+
+
+# ============================================================================
+# Client-side: Auto-refresh timer display when running
+# ============================================================================
+app.clientside_callback(
+    """
+    function(state) {
+        // Clear any existing interval
+        if (window.choreoTimerInterval) {
+            clearInterval(window.choreoTimerInterval);
+            window.choreoTimerInterval = null;
+        }
+
+        // If timer is running, set up interval to trigger state refresh
+        if (state && state.running) {
+            window.choreoTimerInterval = setInterval(function() {
+                // Trigger a tiny state update to refresh display
+                // This doesn't send data to server, just triggers the display callback
+                const timerDisplay = document.getElementById('choreography-timer-display');
+                if (timerDisplay && state.running && state.startTime) {
+                    const elapsed = (Date.now() / 1000) - state.startTime;
+                    const minutes = Math.floor(elapsed / 60);
+                    const seconds = Math.floor(elapsed % 60);
+                    const milliseconds = Math.floor((elapsed % 1) * 1000);
+                    const mm = String(minutes).padStart(2, '0');
+                    const ss = String(seconds).padStart(2, '0');
+                    const mmm = String(milliseconds).padStart(3, '0');
+                    timerDisplay.textContent = `${mm}:${ss}:${mmm}`;
+                }
+            }, 10);  // Update every 10ms, but purely client-side
+        }
+
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output("choreography-timer-display", "style", allow_duplicate=True),
+    Input("choreography-timer-state", "data"),
     prevent_initial_call=True,
 )
 
