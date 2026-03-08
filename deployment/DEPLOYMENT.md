@@ -143,12 +143,29 @@ sudo systemctl restart nginx
 
 ### Update Application Code
 
+**Option 1: Use the update script (recommended)**
 ```bash
 cd /var/www/moodhoops-pattern-utils
-git pull  # or upload new files
-source venv/bin/activate
-pip install -r requirements.txt
-sudo systemctl restart moodhoops-pattern-utils
+sudo bash deployment/update.sh
+```
+
+**Option 2: Manual update**
+```bash
+cd /var/www/moodhoops-pattern-utils
+
+# Stop the service
+sudo systemctl stop moodhoops-pattern-utils
+
+# Fix git ownership and pull
+sudo chown -R $USER:$USER /var/www/moodhoops-pattern-utils
+git pull
+
+# Update dependencies as www-data
+sudo chown -R www-data:www-data /var/www/moodhoops-pattern-utils
+sudo -u www-data /var/www/moodhoops-pattern-utils/venv/bin/pip install -r requirements.txt --upgrade
+
+# Restart
+sudo systemctl start moodhoops-pattern-utils
 ```
 
 ## Optional: Set Up SSL with Let's Encrypt
@@ -180,6 +197,21 @@ sudo certbot --nginx -d your-domain.com
 ```bash
 sudo chown -R www-data:www-data /var/www/moodhoops-pattern-utils
 sudo chown -R www-data:www-data /var/log/moodhoops-pattern-utils
+```
+
+### Git "dubious ownership" error
+If you get a git error about dubious ownership when trying to pull:
+```bash
+# Temporarily change ownership to your user for git operations
+sudo chown -R $USER:$USER /var/www/moodhoops-pattern-utils
+git pull
+# Change back to www-data
+sudo chown -R www-data:www-data /var/www/moodhoops-pattern-utils
+```
+
+Or use the update script which handles this automatically:
+```bash
+sudo bash deployment/update.sh
 ```
 
 ## Performance Tuning

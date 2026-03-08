@@ -28,6 +28,10 @@ echo "Step 2: Creating directories..."
 mkdir -p $LOG_DIR
 chown -R $APP_USER:$APP_USER $LOG_DIR
 
+# Create matplotlib cache directory
+mkdir -p $APP_DIR/.matplotlib
+chown -R $APP_USER:$APP_USER $APP_DIR/.matplotlib
+
 echo ""
 echo "Step 3: Setting proper ownership..."
 chown -R $APP_USER:$APP_USER $APP_DIR

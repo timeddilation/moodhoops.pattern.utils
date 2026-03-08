@@ -24,6 +24,9 @@ app = dash.Dash(
     suppress_callback_exceptions=True,
 )
 
+# Expose Flask server for WSGI deployment (gunicorn)
+server = app.server
+
 
 # ============================================================================
 # Home Page
