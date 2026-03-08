@@ -46,7 +46,13 @@ sudo -u $APP_USER $APP_DIR/venv/bin/pip install --upgrade pip
 sudo -u $APP_USER $APP_DIR/venv/bin/pip install -r requirements.txt --upgrade
 
 echo ""
-echo "Step 4: Restarting services..."
+echo "Step 4: Copying service file and reloading systemd..."
+cp deployment/moodhoops-pattern-utils.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable moodhoops-pattern-utils
+
+echo ""
+echo "Step 5: Restarting services..."
 systemctl start moodhoops-pattern-utils
 systemctl status moodhoops-pattern-utils --no-pager
 
