@@ -29,20 +29,24 @@ mkdir -p $LOG_DIR
 chown -R $APP_USER:$APP_USER $LOG_DIR
 
 echo ""
-echo "Step 3: Setting up Python virtual environment..."
+echo "Step 3: Setting proper ownership..."
+chown -R $APP_USER:$APP_USER $APP_DIR
+
+echo ""
+echo "Step 4: Setting up Python virtual environment..."
 cd $APP_DIR
 sudo -u $APP_USER python3 -m venv venv
 sudo -u $APP_USER $APP_DIR/venv/bin/pip install --upgrade pip
 sudo -u $APP_USER $APP_DIR/venv/bin/pip install -r requirements.txt
 
 echo ""
-echo "Step 4: Setting up systemd service..."
+echo "Step 5: Setting up systemd service..."
 cp deployment/moodhoops-pattern-utils.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable moodhoops-pattern-utils
 
 echo ""
-echo "Step 5: Configuring nginx..."
+echo "Step 6: Configuring nginx..."
 cp deployment/nginx-moodhoops.conf /etc/nginx/sites-available/moodhoops
 
 # Prompt for domain/IP
@@ -54,10 +58,6 @@ rm -f /etc/nginx/sites-enabled/default
 
 # Test nginx configuration
 nginx -t
-
-echo ""
-echo "Step 6: Setting proper ownership..."
-chown -R $APP_USER:$APP_USER $APP_DIR
 
 echo ""
 echo "Step 7: Starting services..."

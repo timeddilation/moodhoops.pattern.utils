@@ -19,6 +19,7 @@ sudo apt install -y python3 python3-pip python3-venv nginx
 
 ```bash
 sudo mkdir -p /var/www/moodhoops-pattern-utils
+# Temporarily give yourself ownership to upload files
 sudo chown -R $USER:$USER /var/www/moodhoops-pattern-utils
 ```
 
@@ -38,22 +39,25 @@ cd /var/www/moodhoops-pattern-utils
 git clone <your-repo-url> .
 ```
 
-## Step 4: Set Up Python Virtual Environment
+## Step 4: Set Proper Ownership and Create Log Directory
+
+```bash
+# Change ownership to www-data (the user that will run the application)
+sudo chown -R www-data:www-data /var/www/moodhoops-pattern-utils
+
+# Create log directory
+sudo mkdir -p /var/log/moodhoops-pattern-utils
+sudo chown -R www-data:www-data /var/log/moodhoops-pattern-utils
+```
+
+## Step 5: Set Up Python Virtual Environment
 
 ```bash
 cd /var/www/moodhoops-pattern-utils
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-pip install gunicorn dash dash-bootstrap-components
-```
-
-## Step 5: Create Log Directory
-
-```bash
-sudo mkdir -p /var/log/moodhoops-pattern-utils
-sudo chown -R www-data:www-data /var/log/moodhoops-pattern-utils
+# Run as www-data user since it owns the directory
+sudo -u www-data python3 -m venv venv
+sudo -u www-data venv/bin/pip install --upgrade pip
+sudo -u www-data venv/bin/pip install -r requirements.txt
 ```
 
 ## Step 6: Install and Configure systemd Service
@@ -61,9 +65,6 @@ sudo chown -R www-data:www-data /var/log/moodhoops-pattern-utils
 ```bash
 # Copy the service file
 sudo cp deployment/moodhoops-pattern-utils.service /etc/systemd/system/
-
-# Set proper ownership for the application directory
-sudo chown -R www-data:www-data /var/www/moodhoops-pattern-utils
 
 # Reload systemd to recognize the new service
 sudo systemctl daemon-reload
