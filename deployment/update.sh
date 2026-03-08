@@ -52,7 +52,7 @@ systemctl status moodhoops-pattern-utils --no-pager
 
 echo ""
 echo "========================================="
-echo "Update complete! ✅"
+echo "Update complete!"
 echo "========================================="
 echo ""
 echo "Check logs if needed:"
