@@ -480,6 +480,22 @@ choreography_page = dbc.Container(
 app.layout = dbc.Container(
     [
         dcc.Store(id="copied-hex-store"),
+        # Toast notification for copied hex value
+        dbc.Toast(
+            id="copy-toast",
+            header="Copied to Clipboard!",
+            is_open=False,
+            dismissable=True,
+            duration=2000,
+            icon="success",
+            style={
+                "position": "fixed",
+                "top": 20,
+                "right": 20,
+                "width": 350,
+                "zIndex": 9999,
+            },
+        ),
         dbc.Row(
             [
                 # Side Navigation
@@ -568,6 +584,8 @@ def display_page(pathname):
 # ============================================================================
 # Client-side: click pixel to clipboard
 # ============================================================================
+# Client-side: click pixel to clipboard (with HTTP fallback)
+# ============================================================================
 app.clientside_callback(
     """
     function(homeClickData, slowdownClickData, swapClickData) {
@@ -592,8 +610,41 @@ app.clientside_callback(
             return window.dash_clientside.no_update;
         }
 
+        // Try modern Clipboard API first (requires HTTPS or localhost)
         if (navigator?.clipboard?.writeText) {
-            navigator.clipboard.writeText(hex).catch(() => {});
+            navigator.clipboard.writeText(hex)
+                .then(() => console.log('Copied via Clipboard API:', hex))
+                .catch(err => {
+                    console.log('Clipboard API failed, trying fallback:', err);
+                    copyFallback(hex);
+                });
+        } else {
+            // Fallback for HTTP (non-secure) contexts
+            copyFallback(hex);
+        }
+
+        // Fallback copy method using textarea + execCommand
+        function copyFallback(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    console.log('Copied via fallback method:', text);
+                } else {
+                    console.error('Fallback copy failed');
+                }
+            } catch (err) {
+                console.error('Copy failed:', err);
+            }
+            
+            document.body.removeChild(textarea);
         }
 
         return { hex: hex, copiedAt: Date.now() };
@@ -716,6 +767,32 @@ app.clientside_callback(
     Input("choreography-timer-state", "data"),
     prevent_initial_call=True,
 )
+
+
+# ============================================================================
+# Callback: Show toast notification when hex is copied
+# ============================================================================
+@callback(
+    Output("copy-toast", "is_open"),
+    Output("copy-toast", "children"),
+    Input("copied-hex-store", "data"),
+    prevent_initial_call=True,
+)
+def show_copy_toast(data):
+    """Display toast notification when hex value is copied."""
+    if data and data.get("hex"):
+        hex_value = data["hex"]
+        toast_content = html.Div(
+            [
+                html.P(
+                    f"Color {hex_value} copied!",
+                    className="mb-0",
+                    style={"fontWeight": "500"},
+                ),
+            ]
+        )
+        return True, toast_content
+    return False, ""
 
 
 if __name__ == "__main__":
