@@ -1,0 +1,22 @@
+[Unit]
+Description=MoodHoops Pattern Utils Web Application
+After=network.target
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/moodhoops-pattern-utils
+Environment="PATH=/var/www/moodhoops-pattern-utils/venv/bin"
+ExecStart=/var/www/moodhoops-pattern-utils/venv/bin/gunicorn \
+    --bind 127.0.0.1:8000 \
+    --workers 4 \
+    --timeout 120 \
+    --access-logfile /var/log/moodhoops-pattern-utils/access.log \
+    --error-logfile /var/log/moodhoops-pattern-utils/error.log \
+    app:app.server
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
